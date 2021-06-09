@@ -1,5 +1,7 @@
 <?php
 //created by Artem Herasymiuk
+error_reporting(0);
+
 require "connect.php";  // our file with DataBaseConnect class
 class HostService { // Something logic with host
     public function getHostName(string $str):string {
@@ -10,20 +12,22 @@ class HostService { // Something logic with host
         }
         return "null";
     }
-    public function showStatistic(string $host, string $tag){//This function show Statistic
+    public function showStatistic(string $host, string $tag,bool $status){//This function show Statistic
         // Get all urls from  domain
         echo "<br/>"."<hr>"."General statistic"."<br/>";
         $urls = R::getAll(" SELECT COUNT(DISTINCT request.url_id) FROM request INNER JOIN domains ON request.domain_id = domains.id WHERE domains.name = ?",[ $host ]);
         echo "<br/>".$urls[0]["COUNT(DISTINCT request.url_id)"]." different URLs ".$host." have been fetched";
         //Get average time for all request in one domain the last 24 hours
         $avg = R::getAll("SELECT AVG(request.total_time) FROM request INNER JOIN domains ON request.domain_id = domains.id WHERE domains.name = ? AND request.send_time >= NOW() - INTERVAL 1 DAY",[$host]);
-        echo "<br/>Average fetch time from ".$host."during the last 24 hours: ".round($avg[0]["AVG(request.total_time)"],3)."s";
+        echo "<br/>Average fetch time from ".$host." during the last 24 hours: ".round($avg[0]["AVG(request.total_time)"],3)."s";
         //Get sum of all elements in domain
-        $HostElements = R::getAll("SELECT SUM(request.total) FROM request INNER JOIN elements ON request.element_id = elements.id INNER JOIN domains ON request.domain_id = domains.id WHERE elements.name = ? AND domains.name = ?", [$tag,$host] );
-        echo "<br/>There was a total of ".$HostElements[0]['SUM(request.total)']." ".$tag." elements from ".$host;
-        //Get sum of all elements of all request
-        $totalElements = R::getAll("SELECT SUM(request.total) FROM request INNER JOIN elements ON request.element_id = elements.id WHERE elements.name = ?",[ $tag ]);
-        echo "<br/>Total of ".$totalElements[0]["SUM(request.total)"]." ".$tag."elements counted in all requests ever made.";
+        if($status){
+            $HostElements = R::getAll("SELECT SUM(request.total) FROM request INNER JOIN elements ON request.element_id = elements.id INNER JOIN domains ON request.domain_id = domains.id WHERE elements.name = ? AND domains.name = ?", [$tag,$host] );
+            echo "<br/>There was a total of ".$HostElements[0]['SUM(request.total)'] ." ".$tag." elements from ".$host;
+            //Get sum of all elements of all request
+            $totalElements = R::getAll("SELECT SUM(request.total) FROM request INNER JOIN elements ON request.element_id = elements.id WHERE elements.name = ?",[ $tag ]);
+            echo "<br/>Total of ".$totalElements[0]["SUM(request.total)"]." ".$tag." elements counted in all requests ever made.";
+        }
     }
 }
 class ValidationService {
@@ -35,12 +39,10 @@ class ValidationService {
         }
         return false;
     }
-    public function validateTag(string $str):string {
-        //This reqular expression check if our tag have next format <text>
-        if(preg_match("/<.+?>/",$str)){
-            return true;
-        }
-        return false;
+    public function getTag(string $tag){
+        $tag = str_replace("<","",$tag);
+        $tag = str_replace(">","",$tag);
+        return $tag;
     }
     //This function return previos request of last 5 minuts or null
     public function checkLastRequest(string $tag,string $url){
@@ -95,10 +97,9 @@ class ParseHtmlService {
         @ $this->document->loadHTML($html); // load html to DOM object
         return $this;
     }
+    
     public function findHtmlTag(string $tag){
-        // transfotm <tag> to "tag"
-        $tag = str_replace("<","",$tag);
-        $tag = str_replace(">","",$tag);
+        
         // return len elements on page;
         return $this->document->getElementsByTagName($tag)->length;
     }
@@ -116,8 +117,9 @@ class AjaxController {
     public function index() {
         //get data from form
         $url = $_POST['url'];
-        $tag = $_POST['tag'];
-        $errors=[]; // array with Errors
+        
+        $tag = $this->validationService->getTag($_POST['tag']);
+        
         //First Level: validate url
         if($this->validationService->validateUrl($url)){
             
@@ -127,7 +129,7 @@ class AjaxController {
             }
             else {//go to next level
                 
-                if($this->validationService->validateTag($tag)){//Level 2: validate html tag
+               
                     $curl = new CurlService($url);//create curl request
                     $code = $curl->getCode(); // get https code 
                     switch($code){ //  use switch to make different behaviour for different code
@@ -135,27 +137,40 @@ class AjaxController {
                     
                     case(200): // Good code we can go to 3 level
                         echo "<br/>Domain: ".$host;
+                        $status = false; // using status to change statistic information i think it was better that using Builder 
                         $db = DataBaseConnect::getObject();//create bd class
                         $time = $curl->getTotalTime(); // get time of curl response
                         $document = new ParseHtmlService($curl->getCurl()); // find elements
-                    
-                        $db->checkVariables($host,$tag,$url); // Check variables and add him into database if we used this data first time 
+                        $elements = $document->findHtmlTag($tag);
+                        
                         $oldRequest = $this->validationService->checkLastRequest($tag,$url);// check if we send this same request of last five minute
                         if($oldRequest==null){ // Create new request
-                            echo "<br/>Elements: ".$document->findHtmlTag($tag); // echo len of elements
+                            
+                            echo "<br/>Elements: ".$elements; // echo len of elements
                             echo "<br/>Total time: ".$time; // Total time
-                            $db->addRequest($host,$tag,$url,$time,$document->findHtmlTag($tag)); // Add request into db
+                            echo "<br/>Send time is: ".date("Y-m-d H:i:s");
+                            if($elements!=0){ // this protect us from spamming data to database and add only true html elements
+                                $status = true;
+                                $db->checkVariables($host,$tag,$url); // Check variables and add him into database if we used this data first time 
+                                $db->addRequest($host,$tag,$url,$time,$document->findHtmlTag($tag)); // Add request into db
+                            }
+                            
                         }
                         else { // Show old request
-                            
+                            $status = true;
                             echo "<br/>Elements: ".$oldRequest[0]['total'];
                             echo "<br/>Total time: ".$oldRequest[0]['total_time'];
+                            echo "<br/>Send time is: ".$oldRequest[0]['send_time'];
                         }
-                        $this->HostService->showStatistic($host,$tag);// Show general statistic
+                        $this->HostService->showStatistic($host,$tag,$status);// Show general statistic
                         break;
                     
                     case(301) : //Bad url code 
-                        echo "<br/>Url need to be: 'https://www.example.com'";
+                        
+                        $_POST['url'] = substr($_POST['url'],0,8)."www.".substr($_POST['url'],8);
+                       
+                        $this->index();//create redirect to www;
+                        echo "<br/>Url need to be: 'https://www.example.com'";// Alert message
                         break;
                     case(0) : // This code it's header exeption "Allow Origin Header"
                         echo "<br/>Bad Url";
@@ -169,13 +184,7 @@ class AjaxController {
                     }
                 
             }
-        
-                else {
-                    echo "<br/>Invalid html tag";
-                }
-            }
-        }
-        else {
+        }        else {
             echo "<br/>Invalid URL";
         }
        

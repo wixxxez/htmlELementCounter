@@ -44,13 +44,14 @@
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
 <script>
+
  $("#CounterForm").submit(function(e) {
-    console.log("c")
+   
     e.preventDefault(); // avoid to execute the actual submit of the form.
     let regexTag = /<.+?>/;// pattern to regular expression for Tag
     let regexUrl = /^http/;// pattern to regular expression for URL
     if(regexUrl.test($("#formGroupExampleInput").val())){ // validate url
-        if(regexTag.test($("#formGroupExampleInput2").val())){//validate tag
+       // if(regexTag.test($("#formGroupExampleInput2").val())){//validate tag
             var form = $(this);
             var url = form.attr('action');
             $.ajax({
@@ -63,11 +64,11 @@
                 $("#data").html(data); // show response from the php script.
             }
             });
-        }
-        else {//Show Tag Error
-            var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid html tag<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
-            $("#error_zone_js").append(error);
-        }
+       // }
+       // else {//Show Tag Error
+       //     var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid html tag<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
+       //     $("#error_zone_js").append(error);
+        //}
     }   
     else {//Show URL Erro
         var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid url<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
