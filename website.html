@@ -51,7 +51,8 @@
     let regexTag = /<.+?>/;// pattern to regular expression for Tag
     let regexUrl = /^http/;// pattern to regular expression for URL
     if(regexUrl.test($("#formGroupExampleInput").val())){ // validate url
-       // if(regexTag.test($("#formGroupExampleInput2").val())){//validate tag
+        let re = $("#formGroupExampleInput2").val()
+        if(!re.includes(" ")){//validate tag
             var form = $(this);
             var url = form.attr('action');
             $.ajax({
@@ -64,11 +65,11 @@
                 $("#data").html(data); // show response from the php script.
             }
             });
-       // }
-       // else {//Show Tag Error
-       //     var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid html tag<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
-       //     $("#error_zone_js").append(error);
-        //}
+        }
+        else {//Show Tag Error
+            var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid html tag<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
+            $("#error_zone_js").append(error);
+       }
     }   
     else {//Show URL Erro
         var error = '<div class="alert alert-danger alert-dismissible fade show" role="alert">Invalid url<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>'
